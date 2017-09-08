@@ -1,0 +1,128 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.io as sio
+from svm import *
+from svmutil import *
+
+def plotData(X,y):
+  plt.figure()
+  plt.plot(X[np.where(y==1)[0],0],X[np.where(y==1)[0],1],'k+',linewidth=1,markersize=7)
+  plt.plot(X[np.where(y==0)[0],0],X[np.where(y==0)[0],1],'ko',markerfacecolor='y',markersize=7)
+
+def tolist(a):
+  try:
+    return list(tolist(i) for i in a)
+  except TypeError:
+    return a
+
+def wb(model):
+  alpha=np.array(model.get_sv_coef())
+  sv=np.zeros([len(model.get_SV()),2])
+  for i,dic in enumerate(model.get_SV()):
+    sv[i,0]=dic[1]
+    sv[i,1]=dic[2]
+  w=sv.T.dot(alpha)
+  b=-model.rho[0]
+  return w,b
+
+def plotDecBound(X,model):
+  xPlot,yPlot=np.meshgrid(np.linspace(X[:,0].min(),X[:,0].max(),100),\
+            np.linspace(X[:,1].min(),X[:,1].max(),100))
+  zPlot=np.zeros(xPlot.shape)
+  xx=np.concatenate((xPlot.reshape([-1,1]),yPlot.reshape([-1,1])),axis=1)
+  x=tolist(xx)
+  for i in range(xPlot[1].size):
+    p_labels,p_acc,p_vals=svm_predict([1]*100,x[100*i:100*(i+1)],model,'-q')
+    zPlot[i,:]=p_labels
+  plt.contour(xPlot,yPlot,zPlot,color='b',levels=[0])
+  return None 
+## Machine Learning Online Class
+#  Exercise 6 | Support Vector Machines
+#
+#  Instructions
+#  ------------
+# 
+#  This file contains code that helps you get started on the
+#  exercise. You will need to complete the following functions:
+#
+#     gaussianKernel.m
+#     dataset3Params.m
+#     processEmail.m
+#     emailFeatures.m
+#
+#  For this exercise, you will not need to change any code in this file,
+#  or any other files other than those mentioned above.
+#
+
+## =============== Part 1: Loading and Visualizing Data ================
+#  We start the exercise by first loading and visualizing the dataset. 
+#  The following code will load the dataset into your environment and plot
+#  the data.
+#
+
+print('Loading and Visualizing Data ...')
+
+# Load from ex6data1: 
+# You will have X, y in your environment
+data1=sio.loadmat('ex6data1.mat')
+X=data1['X']
+y=data1['y']
+y=y.astype(float).flatten()
+# Plot training data
+plotData(X, y)
+y[y==0]=-1
+Xs,ys=tolist(X),tolist(y)
+prob=svm_problem(ys,Xs)
+param=svm_parameter('-t 0 -c 1')
+m=svm_train(prob,param)
+w,b=wb(m)
+xPlot=np.linspace(X[:,0].min(),X[:,0].max(),50)
+yPlot=(-1/w[1])*(w[0]*xPlot+b)
+plt.plot(xPlot,yPlot,'b-',linewidth=1)
+
+param=svm_parameter('-t 0 -c 100')
+m=svm_train(prob,param)
+w,b=wb(m)
+xPlot=np.linspace(X[:,0].min(),X[:,0].max(),50)
+yPlot=(-1/w[1])*(w[0]*xPlot+b)
+plt.plot(xPlot,yPlot,'g-',linewidth=1)
+
+data2=sio.loadmat('ex6data2.mat')
+X=data2['X']
+y=data2['y']
+y=y.astype(float).flatten()
+plotData(X,y)
+y[y==0]=-1
+Xs,ys=tolist(X),tolist(y)
+prob=svm_problem(ys,Xs)
+param=svm_parameter('-t 2 -c 1000 -g 10')
+m=svm_train(prob,param)
+pl,pa,pc=svm_predict(ys,Xs,m)
+plotDecBound(X,m)
+
+data3=sio.loadmat('ex6data3.mat')
+X=data3['X']
+y=data3['y']
+Xval=data3['Xval']
+yval=data3['yval']
+y=y.astype(float).flatten()
+yval=yval.astype(float).flatten()
+plotData(X,y)
+y[y==0]=-1
+yval[yval==0]=-1
+Xs,ys=tolist(X),tolist(y)
+Xvals,yvals=tolist(Xval),tolist(yval)
+prob=svm_problem(ys,Xs)
+C_vec=[0.01,0.03,0.1,0.3,1,3,10,30]
+sigma_vec=[100,1/0.03,10,1/0.3,1,1/3,0.1,1/30]
+acc=np.zeros([len(C_vec),len(sigma_vec)])
+mb=[]
+for i in range(len(C_vec)):
+  for j in range(len(sigma_vec)):
+    param=svm_parameter('-t 2 -c '+str(C_vec[i])+' -g '+str(sigma_vec[j]))
+    m=svm_train(prob,param)
+    p_label,p_acc,p_vals=svm_predict(yvals,Xvals,m)
+    acc[i,j]=p_acc[0]
+    mb.append(m)
+b=np.argmax(acc)
+plotDecBound(X,mb[b])
